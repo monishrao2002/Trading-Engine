@@ -434,12 +434,22 @@ def get_latest_performance_stats(engine_mode: str = "paper") -> Optional[Dict[st
     return dict(row) if row else None
 
 
+def update_trade_sl(trade_id: int, new_sl: float) -> None:
+    """Update the stop-loss for an open trade (used by trailing SL)."""
+    conn = _get_connection()
+    conn.execute(
+        "UPDATE trades SET stop_loss=? WHERE id=?",
+        (new_sl, trade_id),
+    )
+    conn.commit()
+
+
 def get_trades_today(engine_mode: str = "paper") -> int:
-    """Count trades closed today."""
+    """Count trades opened today (both open and closed)."""
     conn = _get_connection()
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     row = conn.execute(
-        "SELECT COUNT(*) as cnt FROM trades WHERE engine_mode=? AND status='CLOSED' AND closed_at LIKE ?",
+        "SELECT COUNT(*) as cnt FROM trades WHERE engine_mode=? AND timestamp LIKE ?",
         (engine_mode, f"{today}%"),
     ).fetchone()
     return row["cnt"] if row else 0

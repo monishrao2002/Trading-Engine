@@ -26,7 +26,7 @@ def create_app() -> Flask:
         template_folder=template_dir,
         static_folder=static_dir,
     )
-    app.secret_key = os.environ.get("FLASK_SECRET", os.urandom(24).hex())
+    app.secret_key = os.environ.get("FLASK_SECRET", "groww-autotrader-secret-key-v3")
 
     # ------------------------------------------------------------------
     # Pages
@@ -266,6 +266,114 @@ def create_app() -> Flask:
                 "max_drawdown": 0, "trades_today": 0, "daily_pnl": 0, "total_pnl": 0,
             })
         return jsonify(stats)
+
+    # ------------------------------------------------------------------
+    # Manual paper trade endpoint
+    # ------------------------------------------------------------------
+
+    @app.route("/api/manual_trade", methods=["POST"])
+    def api_manual_trade():
+        """
+        Open a manual paper trade for testing.
+        Fetches real LTP and candle data for the specified option symbol.
+        Accepts: {"index": "NIFTY", "strike": 24500, "option_type": "CE", "quantity": 65}
+        """
+        if _cycle_manager is None:
+            return jsonify({"error": "Engine not initialized. Add a token first."}), 400
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "JSON body required"}), 400
+
+        index_name = data.get("index", "NIFTY")
+        strike = int(data.get("strike", 0))
+        option_type = data.get("option_type", "CE")
+        quantity = int(data.get("quantity", 0))
+
+        if not strike:
+            return jsonify({"error": "strike is required"}), 400
+
+        from bot.config.settings import LOT_SIZES, STOP_LOSS_PERCENT, TARGET_PERCENT
+        lot_size = LOT_SIZES.get(index_name, 50)
+        if quantity <= 0:
+            quantity = lot_size
+
+        # Step 1: Get the trading symbol for this strike
+        dl = _cycle_manager.data_layer
+        expiry = dl.get_cached_expiry(index_name)
+        if not expiry:
+            expiry = dl.fetch_nearest_expiry(index_name)
+        if not expiry:
+            return jsonify({"error": f"No expiry found for {index_name}"}), 400
+
+        trading_symbol = dl.get_trading_symbol_for_strike(
+            index_name, strike, option_type
+        )
+        if not trading_symbol:
+            # Try fetching option chain first
+            dl.fetch_option_chain(index_name, expiry)
+            trading_symbol = dl.get_trading_symbol_for_strike(
+                index_name, strike, option_type
+            )
+        if not trading_symbol:
+            return jsonify({"error": f"No symbol found for {index_name} {strike}{option_type}"}), 400
+
+        # Step 2: Fetch LTP for this option
+        role_map = {"NIFTY": 2, "BANKNIFTY": 3, "FINNIFTY": 4}
+        role_id = role_map.get(index_name, 2)
+        option_ltp = _cycle_manager.client.get_weekly_option_ltp(
+            trading_symbol, role_id=role_id
+        )
+        if option_ltp is None or option_ltp <= 0:
+            # Try batch LTP
+            sym_key = f"NSE_{trading_symbol}" if not trading_symbol.startswith("NSE_") else trading_symbol
+            batch = _cycle_manager.client.get_option_ltp_batch(
+                (sym_key,), role_id=role_id
+            )
+            option_ltp = batch.get(sym_key, batch.get(trading_symbol, 0.0))
+        if not option_ltp or option_ltp <= 0:
+            return jsonify({"error": f"Could not fetch LTP for {trading_symbol}"}), 400
+
+        # Step 3: Fetch option candles (15min)
+        candles = dl.fetch_option_candles(trading_symbol)
+        candle_count = len(candles)
+        latest_candle = candles[-1] if candles else None
+
+        # Step 4: Calculate SL and target
+        stop_loss = round(option_ltp * (1 - STOP_LOSS_PERCENT / 100.0), 2)
+        target = round(option_ltp * (1 + TARGET_PERCENT / 100.0), 2)
+
+        # Step 5: Place the paper trade
+        trade_id = _cycle_manager.execution.open_trade(
+            index_name=index_name,
+            symbol=trading_symbol,
+            entry_price=option_ltp,
+            quantity=quantity,
+            stop_loss=stop_loss,
+            target=target,
+            candle_timestamp=str(latest_candle.get("timestamp", "")) if latest_candle else "",
+        )
+
+        if not trade_id:
+            return jsonify({"error": "Trade placement failed (risk limits or insufficient capital)"}), 400
+
+        # Step 6: Update dashboard state
+        dl.set_selected_atm(index_name, strike)
+        dl.set_selected_symbol(index_name, trading_symbol)
+
+        result = {
+            "status": "trade_opened",
+            "trade_id": trade_id,
+            "symbol": trading_symbol,
+            "ltp": option_ltp,
+            "quantity": quantity,
+            "entry_price": option_ltp,
+            "stop_loss": stop_loss,
+            "target": target,
+            "candle_count": candle_count,
+            "latest_candle": latest_candle,
+        }
+        return jsonify(result)
 
     return app
 

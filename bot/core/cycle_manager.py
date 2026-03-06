@@ -278,10 +278,11 @@ class CycleManager:
 
         # Step 8: Determine quantity and prices with v3 dynamic SL
         option_ltp = strikes_ltp[affordable_strike]
-        atr = signal_details.get("atr", 0.0)
 
-        # v3: Dynamic stop-loss
-        stop_loss = self.risk_engine.get_dynamic_sl(option_ltp, candles, atr)
+        # v3: Dynamic stop-loss (percentage-based only, since candles/ATR are
+        # from the index, not the option contract — mixing them would produce
+        # incorrect SL values)
+        stop_loss = self.risk_engine.get_dynamic_sl(option_ltp)
         sl_distance = option_ltp - stop_loss if stop_loss < option_ltp else option_ltp * 0.015
 
         quantity = self.risk_engine.calculate_position_size(

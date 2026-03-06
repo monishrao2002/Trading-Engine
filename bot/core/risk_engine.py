@@ -358,12 +358,16 @@ class RiskEngine:
         stop_loss = trade.get("stop_loss", 0)
         target = trade.get("target", 0)
 
-        # v3: Update trailing SL
+        # v3: Update trailing SL and persist to DB
         if stop_loss and entry_price and current_ltp > entry_price:
             new_sl = self.check_trailing_sl(entry_price, current_ltp, stop_loss)
             if new_sl > stop_loss:
                 trade["stop_loss"] = new_sl
                 stop_loss = new_sl
+                # Persist trailing SL to database so it survives across cycles
+                trade_id = trade.get("id")
+                if trade_id:
+                    db.update_trade_sl(trade_id, new_sl)
 
         # Regular SL check
         if stop_loss and current_ltp <= stop_loss:

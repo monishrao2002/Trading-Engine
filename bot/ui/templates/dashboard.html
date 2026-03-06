@@ -507,6 +507,28 @@
             </div>
         </div>
 
+        <!-- Manual Paper Trade -->
+        <div class="card" style="margin-bottom: 16px;">
+            <h3>Manual Paper Trade</h3>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+                <select id="manual-index" style="padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+                    <option value="NIFTY">NIFTY</option>
+                    <option value="BANKNIFTY">BANKNIFTY</option>
+                    <option value="FINNIFTY">FINNIFTY</option>
+                </select>
+                <input type="number" id="manual-strike" placeholder="Strike (e.g. 24500)" value="24500"
+                    style="width:140px; padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+                <select id="manual-option-type" style="padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+                    <option value="CE">CE</option>
+                    <option value="PE">PE</option>
+                </select>
+                <input type="number" id="manual-qty" placeholder="Qty (0=lot size)" value="0"
+                    style="width:120px; padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+                <button class="btn btn-green" onclick="openManualTrade()">Open Trade</button>
+            </div>
+            <div id="manual-trade-result" style="margin-top:10px; font-size:0.85rem; color:#8b949e;"></div>
+        </div>
+
         <!-- Trades -->
         <div class="card" style="margin-bottom: 16px;">
             <div class="tabs">
@@ -605,6 +627,48 @@
                 }
             } catch (e) {
                 alert('Failed to update token: ' + e.message);
+            }
+        }
+
+        // Manual paper trade
+        async function openManualTrade() {
+            const idx = document.getElementById('manual-index').value;
+            const strike = parseInt(document.getElementById('manual-strike').value);
+            const optType = document.getElementById('manual-option-type').value;
+            const qty = parseInt(document.getElementById('manual-qty').value) || 0;
+            const resultDiv = document.getElementById('manual-trade-result');
+            resultDiv.textContent = 'Opening trade...';
+            resultDiv.style.color = '#d29922';
+            try {
+                const resp = await fetch('/api/manual_trade', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({index: idx, strike: strike, option_type: optType, quantity: qty})
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    resultDiv.textContent = 'Error: ' + escapeHtml(data.error);
+                    resultDiv.style.color = '#da3633';
+                } else {
+                    let msg = 'Trade opened: ' + escapeHtml(data.symbol) +
+                        ' | LTP: ' + data.ltp +
+                        ' | Qty: ' + data.quantity +
+                        ' | SL: ' + data.stop_loss +
+                        ' | Target: ' + data.target +
+                        ' | Candles: ' + data.candle_count;
+                    if (data.latest_candle) {
+                        msg += ' | Latest OHLC: O=' + data.latest_candle.open +
+                            ' H=' + data.latest_candle.high +
+                            ' L=' + data.latest_candle.low +
+                            ' C=' + data.latest_candle.close;
+                    }
+                    resultDiv.textContent = msg;
+                    resultDiv.style.color = '#3fb950';
+                    refreshAll();
+                }
+            } catch (e) {
+                resultDiv.textContent = 'Failed: ' + e.message;
+                resultDiv.style.color = '#da3633';
             }
         }
 

@@ -45,8 +45,16 @@ class EngineGuard:
 
         # Check strategy crashes
         if self._strategy_crash_count > 5:
-            self._pause("Too many strategy crashes")
-            return False
+            # Allow recovery if API and DB are healthy again
+            if self.api_health.is_healthy and self._db_healthy:
+                log_info(
+                    "[ENGINE_GUARD] API and DB healthy — resetting strategy crash count",
+                    "engine_guard",
+                )
+                self._strategy_crash_count = 0
+            else:
+                self._pause("Too many strategy crashes")
+                return False
 
         # If previously paused but conditions cleared, unpause
         if self._paused and self.api_health.is_healthy and self._db_healthy:

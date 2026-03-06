@@ -266,6 +266,18 @@ class ExecutionEngine:
             product="MIS",
         )
 
+        if not order_resp:
+            log_error(
+                f"Live sell order failed for {trade['symbol']}, trade remains open",
+                "execution",
+            )
+            db.insert_error_log(
+                "execution", f"Sell order failed: {trade['symbol']}",
+                "No response from API",
+                symbol=trade["symbol"], error_type="SELL_ORDER_FAILED",
+            )
+            return 0.0
+
         pnl = self.risk_engine.calculate_pnl(trade, exit_price)
         trade_id = trade["id"]
         index_name = trade.get("index_name", "")

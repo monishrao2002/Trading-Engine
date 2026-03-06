@@ -1,10 +1,11 @@
 """
-Cycle manager: orchestrates the round-robin scanning of NIFTY, BANKNIFTY, FINNIFTY.
-Each cycle handles one index: fetch data, evaluate strategy, place trade if signal.
+Cycle manager v3: orchestrates round-robin scanning with candle cache,
+market state engine, API health monitor, engine guard integration.
 """
 
 import time
 import threading
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from bot.api.groww_client import GrowwClientWrapper
@@ -15,8 +16,11 @@ from bot.config.settings import (
     POLL_INTERVAL_SECONDS,
     SUPPORTED_INDICES,
 )
+from bot.core.api_health import APIHealthMonitor
 from bot.core.data_layer import DataLayer
+from bot.core.engine_guard import EngineGuard
 from bot.core.execution_engine import ExecutionEngine
+from bot.core.market_state import MarketStateEngine
 from bot.core.risk_engine import RiskEngine
 from bot.core.strategy_engine import StrategyEngine
 from bot.logs.logger import log_error, log_info, log_warning
@@ -25,8 +29,9 @@ from bot.storage import database as db
 
 class CycleManager:
     """
-    Main orchestrator that runs the trading loop.
+    Main orchestrator that runs the trading loop (v3 enhanced).
     Cycles through indices in round-robin fashion (5s per cycle).
+    Integrates: candle cache, market state, API health, engine guard.
     """
 
     def __init__(self, config: AppConfig) -> None:
@@ -41,6 +46,10 @@ class CycleManager:
             mode=config.mode,
             paper_capital=config.paper_capital,
         )
+        # v3: New modules
+        self.api_health = APIHealthMonitor()
+        self.market_state = MarketStateEngine()
+        self.engine_guard = EngineGuard(self.api_health)
 
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -48,6 +57,7 @@ class CycleManager:
         self._cycle_count = 0
         self._last_signals: Dict[str, Dict[str, Any]] = {}
         self._error_count = 0
+        self._last_backup_time: float = 0.0
 
     # ------------------------------------------------------------------
     # State
@@ -79,6 +89,11 @@ class CycleManager:
             log_warning("Cycle manager already running", "cycle_manager")
             return
 
+        # v3: Position recovery on start
+        recovered = self.execution.recover_positions()
+        if recovered:
+            log_info(f"Recovered {len(recovered)} open positions on start", "cycle_manager")
+
         self._running = True
         self.config.engine_state = "running"
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
@@ -101,11 +116,28 @@ class CycleManager:
         """Main trading loop - runs in background thread."""
         while self._running:
             try:
+                # v3: Check engine guard before executing cycle
+                if not self.engine_guard.check_health():
+                    log_warning(
+                        f"Engine guard paused: {self.engine_guard.get_status().get('pause_reason', '')}",
+                        "cycle_manager",
+                    )
+                    time.sleep(POLL_INTERVAL_SECONDS * 2)
+                    continue
+
                 self._execute_cycle()
+
+                # v3: Periodic database backup (every 24 hours)
+                self._check_backup()
+
             except Exception as exc:
                 self._error_count += 1
+                self.engine_guard.record_strategy_crash()
                 log_error(f"Cycle error: {exc}", "cycle_manager", exc)
-                db.insert_error_log("cycle_manager", f"Cycle error: {exc}", str(exc))
+                db.insert_error_log(
+                    "cycle_manager", f"Cycle error: {exc}", str(exc),
+                    error_type="CYCLE_ERROR",
+                )
 
                 # If too many errors, slow down
                 if self._error_count > 10:
@@ -116,7 +148,7 @@ class CycleManager:
             time.sleep(POLL_INTERVAL_SECONDS)
 
     def _execute_cycle(self) -> None:
-        """Execute one trading cycle for the current index."""
+        """Execute one trading cycle for the current index (v3 enhanced)."""
         index_name = self.current_index
         self._cycle_count += 1
 
@@ -126,7 +158,11 @@ class CycleManager:
         )
 
         # Step 1: Fetch index LTP
+        t0 = time.time()
         index_ltp = self.data_layer.fetch_index_ltp()
+        latency = (time.time() - t0) * 1000
+        self.api_health.record_call(latency, bool(index_ltp))
+
         if index_name not in index_ltp:
             log_warning(f"No LTP available for {index_name}", "cycle_manager")
             self._advance_index()
@@ -135,8 +171,8 @@ class CycleManager:
         # Step 2: Monitor existing open trades
         self._monitor_trades(index_name)
 
-        # Step 3: Check if we can open new trades
-        if not self.risk_engine.can_open_trade():
+        # Step 3: Check if we can open new trades (v3: includes daily limits + cooldown)
+        if not self.risk_engine.can_open_trade(index_name):
             log_info(f"Cannot open new trades (idle={self.risk_engine.is_idle})", "cycle_manager")
             self._advance_index()
             return
@@ -146,7 +182,7 @@ class CycleManager:
             self._advance_index()
             return
 
-        # Step 4: Fetch candles and evaluate strategy
+        # Step 4: Fetch candles (v3: uses candle cache) and evaluate strategy
         candles = self.data_layer.fetch_index_candles(index_name)
         if not candles:
             log_warning(f"No candle data for {index_name}", "cycle_manager")
@@ -157,11 +193,35 @@ class CycleManager:
         self._last_signals[index_name] = signal_details
         signal = signal_details.get("signal")
 
+        # v3: Classify market state
+        market_state = self.market_state.classify(
+            index_name, candles,
+            ema_fast=signal_details.get("ema_fast"),
+            ema_slow=signal_details.get("ema_slow"),
+        )
+
+        # v3: Check if market state allows trading
+        if not self.market_state.should_trade(index_name):
+            log_info(f"Market state {market_state} - skipping {index_name}", "cycle_manager")
+            self._advance_index()
+            return
+
         if signal is None:
             self._advance_index()
             return
 
-        log_info(f"Signal detected for {index_name}: {signal}", "cycle_manager")
+        # v3: Check if signal matches market state direction
+        allowed_type = self.market_state.get_allowed_option_type(index_name)
+        if allowed_type and signal != allowed_type:
+            log_info(
+                f"Signal {signal} conflicts with market state {market_state} "
+                f"(allowed: {allowed_type}) - skipping",
+                "cycle_manager",
+            )
+            self._advance_index()
+            return
+
+        log_info(f"Signal detected for {index_name}: {signal} (market: {market_state})", "cycle_manager")
 
         # Step 5: Fetch option chain and find tradeable strike
         expiry = self.data_layer.get_cached_expiry(index_name)
@@ -196,15 +256,13 @@ class CycleManager:
 
         # Step 7: Check capital and find affordable strike
         available_capital = self.execution.get_available_capital()
-        atm_strike = self.data_layer.detect_atm_strike(
-            index_ltp[index_name],
-            self.data_layer.client.config.tokens[0].role_id if self.data_layer.client.config.tokens else 50,
-        )
-        # Use actual strike step
         from bot.config.settings import STRIKE_STEP
         atm_strike = self.data_layer.detect_atm_strike(
             index_ltp[index_name], STRIKE_STEP[index_name]
         )
+
+        # v3: Record ATM strike for dashboard
+        self.data_layer.set_selected_atm(index_name, atm_strike)
 
         affordable_strike = self.risk_engine.find_affordable_strike(
             strikes_ltp, available_capital, index_name, atm_strike, option_type
@@ -218,10 +276,16 @@ class CycleManager:
             self._advance_index()
             return
 
-        # Step 8: Determine quantity and prices
+        # Step 8: Determine quantity and prices with v3 dynamic SL
         option_ltp = strikes_ltp[affordable_strike]
+        atr = signal_details.get("atr", 0.0)
+
+        # v3: Dynamic stop-loss
+        stop_loss = self.risk_engine.get_dynamic_sl(option_ltp, candles, atr)
+        sl_distance = option_ltp - stop_loss if stop_loss < option_ltp else option_ltp * 0.015
+
         quantity = self.risk_engine.calculate_position_size(
-            available_capital, option_ltp, index_name
+            available_capital, option_ltp, index_name, sl_distance
         )
 
         if quantity <= 0:
@@ -236,7 +300,9 @@ class CycleManager:
             self._advance_index()
             return
 
-        stop_loss = self.risk_engine.calculate_stop_loss(option_ltp)
+        # v3: Record selected symbol for dashboard
+        self.data_layer.set_selected_symbol(index_name, trading_symbol)
+
         target = self.risk_engine.calculate_target(option_ltp)
         candle_ts = str(candles[-1].get("timestamp", "")) if candles else ""
 
@@ -261,7 +327,7 @@ class CycleManager:
             log_info(f"Trade placed successfully: ID={trade_id}", "cycle_manager")
             self._error_count = 0
         else:
-            log_warning(f"Trade placement returned no ID", "cycle_manager")
+            log_warning("Trade placement returned no ID", "cycle_manager")
 
         # Step 10: Advance to next index
         self._advance_index()
@@ -317,8 +383,20 @@ class CycleManager:
     # Status / Info for UI
     # ------------------------------------------------------------------
 
+    def _check_backup(self) -> None:
+        """v3: Periodic database backup every 24 hours."""
+        now = time.time()
+        if now - self._last_backup_time > 86400:  # 24 hours
+            try:
+                backup_path = db.backup_database()
+                log_info(f"Database backed up to {backup_path}", "cycle_manager")
+                db.insert_system_log("INFO", "cycle_manager", f"Database backup: {backup_path}")
+                self._last_backup_time = now
+            except Exception as exc:
+                log_error(f"Database backup failed: {exc}", "cycle_manager", exc)
+
     def get_status(self) -> Dict[str, Any]:
-        """Get current engine status for UI display."""
+        """Get current engine status for UI display (v3 enhanced)."""
         return {
             "engine_state": self.engine_state,
             "mode": self.execution.mode,
@@ -331,11 +409,41 @@ class CycleManager:
             "connected": self.client.is_connected(),
             "error_count": self._error_count,
             "last_signals": dict(self._last_signals),
+            # v3: New status fields
+            "market_states": self.market_state.get_all_states(),
+            "engine_guard": self.engine_guard.get_status(),
+            "candle_info": self.data_layer.get_candle_info(),
+            "selected_atm": self.data_layer.get_selected_atm(),
+            "selected_symbols": self.data_layer.get_selected_symbols(),
         }
 
     def get_index_ltp(self) -> Dict[str, float]:
         """Get cached index LTP data."""
         return self.data_layer.get_cached_index_ltp()
+
+    def get_capital_details(self) -> Dict[str, Any]:
+        """Get capital details for dashboard (v3)."""
+        return self.execution.get_capital_details()
+
+    def get_api_health(self) -> Dict[str, Any]:
+        """Get API health status for dashboard (v3)."""
+        return self.api_health.get_status()
+
+    def get_market_states(self) -> Dict[str, str]:
+        """Get market states for all indices (v3)."""
+        return self.market_state.get_all_states()
+
+    def get_candle_info(self) -> Dict[str, Dict[str, Any]]:
+        """Get candle fetch info for dashboard (v3)."""
+        return self.data_layer.get_candle_info()
+
+    def get_latest_candle_ohlc(self, index_name: str) -> Optional[Dict[str, Any]]:
+        """Get latest candle OHLC for an index (v3)."""
+        return self.data_layer.get_latest_candle_ohlc(index_name)
+
+    def get_recovered_positions(self) -> List[Dict[str, Any]]:
+        """Get open positions for recovery display (v3)."""
+        return db.get_open_positions(self.execution.mode)
 
     def update_token(self, token: str, role_id: int = 1) -> bool:
         """
@@ -346,6 +454,8 @@ class CycleManager:
         if success:
             log_info(f"Token updated for role {role_id}", "cycle_manager")
             db.insert_system_log("INFO", "cycle_manager", f"Token refreshed for role {role_id}")
+            # v3: Clear token expiry in health monitor
+            self.api_health.clear_token_expiry()
         return success
 
     def update_all_tokens(self, token: str) -> None:
@@ -354,3 +464,5 @@ class CycleManager:
             self.client.reinitialize_token(t_cfg.role_id, token)
         log_info("All tokens updated", "cycle_manager")
         db.insert_system_log("INFO", "cycle_manager", "All tokens refreshed with new daily token")
+        # v3: Clear token expiry in health monitor
+        self.api_health.clear_token_expiry()

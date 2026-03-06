@@ -1,6 +1,7 @@
 """
-Flask dashboard for the Groww Multi-Index F&O AutoTrader.
-Displays index LTP, trades, logs, engine state, and provides controls.
+Flask dashboard v3 for the Groww Multi-Index F&O AutoTrader.
+Displays index LTP, trades, logs, engine state, candles, market state,
+capital details, API health, and provides controls.
 """
 
 import os
@@ -8,6 +9,7 @@ from typing import Any, Dict
 
 from flask import Flask, jsonify, render_template, request
 
+from bot.config.settings import SUPPORTED_INDICES
 from bot.storage import database as db
 
 # Will be set by main.py after cycle_manager is created
@@ -183,6 +185,87 @@ def create_app() -> Flask:
             "active_count": _cycle_manager.client.get_active_token_count(),
             "connected": _cycle_manager.client.is_connected(),
         })
+
+    # ------------------------------------------------------------------
+    # v3: New API endpoints
+    # ------------------------------------------------------------------
+
+    @app.route("/api/candles/<index_name>")
+    def api_candles(index_name: str):
+        """Return recent fetched candle info and latest OHLC for an index."""
+        if _cycle_manager is None:
+            return jsonify({"error": "Engine not initialized"}), 400
+        ohlc = _cycle_manager.get_latest_candle_ohlc(index_name)
+        candle_info = _cycle_manager.get_candle_info()
+        info = candle_info.get(index_name, {})
+        return jsonify({
+            "index": index_name,
+            "count": info.get("count", 0),
+            "latest_ts": info.get("latest_ts", ""),
+            "source": info.get("source", ""),
+            "ohlc": ohlc,
+        })
+
+    @app.route("/api/candles")
+    def api_all_candles():
+        """Return candle info for all indices."""
+        if _cycle_manager is None:
+            return jsonify({})
+        result = {}
+        candle_info = _cycle_manager.get_candle_info()
+        for idx in SUPPORTED_INDICES:
+            ohlc = _cycle_manager.get_latest_candle_ohlc(idx)
+            info = candle_info.get(idx, {})
+            result[idx] = {
+                "count": info.get("count", 0),
+                "latest_ts": info.get("latest_ts", ""),
+                "source": info.get("source", ""),
+                "ohlc": ohlc,
+            }
+        return jsonify(result)
+
+    @app.route("/api/market_state")
+    def api_market_state():
+        """Return market state for each index."""
+        if _cycle_manager is None:
+            return jsonify({})
+        return jsonify(_cycle_manager.get_market_states())
+
+    @app.route("/api/capital")
+    def api_capital():
+        """Return available capital details (refreshed after each trade)."""
+        if _cycle_manager is None:
+            return jsonify({"mode": "paper", "available": 0, "used_margin": 0, "remaining": 0})
+        return jsonify(_cycle_manager.get_capital_details())
+
+    @app.route("/api/api_health")
+    def api_api_health():
+        """Return API latency, failures, token status."""
+        if _cycle_manager is None:
+            return jsonify({
+                "total_calls": 0, "total_failures": 0, "consecutive_failures": 0,
+                "avg_latency_ms": 0, "token_expiry": False, "is_healthy": False,
+            })
+        return jsonify(_cycle_manager.get_api_health())
+
+    @app.route("/api/position_recovery")
+    def api_position_recovery():
+        """Return recovered/open positions on restart."""
+        if _cycle_manager is None:
+            return jsonify([])
+        return jsonify(_cycle_manager.get_recovered_positions())
+
+    @app.route("/api/performance_stats")
+    def api_performance_stats():
+        """Return latest performance stats."""
+        mode = request.args.get("mode", "paper")
+        stats = db.get_latest_performance_stats(mode)
+        if not stats:
+            return jsonify({
+                "win_rate": 0, "profit_factor": 0, "avg_rr": 0,
+                "max_drawdown": 0, "trades_today": 0, "daily_pnl": 0, "total_pnl": 0,
+            })
+        return jsonify(stats)
 
     return app
 

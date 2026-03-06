@@ -77,7 +77,7 @@ def init_db() -> None:
 
         CREATE TABLE IF NOT EXISTS token_status (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            role_id INTEGER NOT NULL,
+            role_id INTEGER NOT NULL UNIQUE,
             token_hash TEXT NOT NULL,
             is_active INTEGER NOT NULL DEFAULT 1,
             failure_count INTEGER NOT NULL DEFAULT 0,
@@ -265,7 +265,7 @@ def upsert_token_status(role_id: int, token_hash: str, is_active: bool, failure_
     conn.execute(
         """INSERT INTO token_status (role_id, token_hash, is_active, failure_count, last_used, updated_at)
            VALUES (?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
+           ON CONFLICT(role_id) DO UPDATE SET
              is_active=excluded.is_active,
              failure_count=excluded.failure_count,
              last_used=excluded.last_used,

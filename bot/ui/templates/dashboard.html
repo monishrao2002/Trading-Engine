@@ -437,6 +437,12 @@
     </div>
 
     <script>
+        // HTML escaping utility to prevent XSS
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
         // State
         let currentMode = 'paper';
         let currentTradeTab = 'open';
@@ -612,27 +618,27 @@
                     const pnlClass = (t.pnl > 0) ? 'profit' : (t.pnl < 0) ? 'loss' : 'neutral';
                     if (currentTradeTab === 'closed') {
                         html += `<tr>
-                            <td>${t.id}</td>
-                            <td>${t.timestamp || ''}</td>
-                            <td>${t.index_name}</td>
-                            <td>${t.symbol}</td>
-                            <td>${t.quantity}</td>
+                            <td>${escapeHtml(t.id)}</td>
+                            <td>${escapeHtml(t.timestamp)}</td>
+                            <td>${escapeHtml(t.index_name)}</td>
+                            <td>${escapeHtml(t.symbol)}</td>
+                            <td>${escapeHtml(t.quantity)}</td>
                             <td>${formatNumber(t.entry_price)}</td>
                             <td>${formatNumber(t.exit_price)}</td>
                             <td class="${pnlClass}">${formatNumber(t.pnl)}</td>
-                            <td>${t.status}</td>
+                            <td>${escapeHtml(t.status)}</td>
                         </tr>`;
                     } else {
                         html += `<tr>
-                            <td>${t.id}</td>
-                            <td>${t.timestamp || ''}</td>
-                            <td>${t.index_name}</td>
-                            <td>${t.symbol}</td>
-                            <td>${t.quantity}</td>
+                            <td>${escapeHtml(t.id)}</td>
+                            <td>${escapeHtml(t.timestamp)}</td>
+                            <td>${escapeHtml(t.index_name)}</td>
+                            <td>${escapeHtml(t.symbol)}</td>
+                            <td>${escapeHtml(t.quantity)}</td>
                             <td>${formatNumber(t.entry_price)}</td>
                             <td>${formatNumber(t.stop_loss)}</td>
                             <td>${formatNumber(t.target)}</td>
-                            <td>${t.status}</td>
+                            <td>${escapeHtml(t.status)}</td>
                         </tr>`;
                     }
                 });
@@ -656,8 +662,8 @@
                     const level = (log.level || 'INFO').toLowerCase();
                     const cssClass = level === 'error' ? 'log-error' : level === 'warning' ? 'log-warn' : 'log-info';
                     html += `<div class="log-entry ${cssClass}">
-                        <span class="log-time">${log.timestamp || ''}</span>
-                        [${log.module || ''}] ${log.message || log.exception || ''}
+                        <span class="log-time">${escapeHtml(log.timestamp)}</span>
+                        [${escapeHtml(log.module)}] ${escapeHtml(log.message || log.exception)}
                     </div>`;
                 });
                 container.innerHTML = html;
@@ -678,11 +684,11 @@
                 let html = '';
                 news.forEach(item => {
                     const keywords = item.keywords_matched ? item.keywords_matched.split(',').map(k =>
-                        `<span class="news-keyword">${k.trim()}</span>`
+                        `<span class="news-keyword">${escapeHtml(k.trim())}</span>`
                     ).join(' ') : '';
                     html += `<div class="news-item">
-                        <span class="log-time">${item.timestamp || ''}</span>
-                        ${item.headline} ${keywords}
+                        <span class="log-time">${escapeHtml(item.timestamp)}</span>
+                        ${escapeHtml(item.headline)} ${keywords}
                     </div>`;
                 });
                 container.innerHTML = html;

@@ -24,7 +24,7 @@ def create_app() -> Flask:
         template_folder=template_dir,
         static_folder=static_dir,
     )
-    app.secret_key = os.environ.get("FLASK_SECRET", "groww-autotrader-secret-key")
+    app.secret_key = os.environ.get("FLASK_SECRET", os.urandom(24).hex())
 
     # ------------------------------------------------------------------
     # Pages

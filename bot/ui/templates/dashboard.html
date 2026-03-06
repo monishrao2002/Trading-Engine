@@ -328,12 +328,34 @@
                 <h3>Capital</h3>
                 <div class="stats-row">
                     <div class="stat-item">
-                        <span class="stat-label">Paper Capital</span>
-                        <span class="stat-value neutral" id="paper-capital">5,00,000.00</span>
+                        <span class="stat-label">Available Capital</span>
+                        <span class="stat-value neutral" id="capital-available">--</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">Live Margin</span>
-                        <span class="stat-value neutral" id="live-capital">--</span>
+                        <span class="stat-label">Used Margin</span>
+                        <span class="stat-value neutral" id="capital-used">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Remaining</span>
+                        <span class="stat-value neutral" id="capital-remaining">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Mode</span>
+                        <span class="stat-value" id="capital-mode">--</span>
+                    </div>
+                </div>
+                <div class="stats-row" style="margin-top:8px;">
+                    <div class="stat-item">
+                        <span class="stat-label">Daily P&L</span>
+                        <span class="stat-value" id="daily-pnl">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total P&L</span>
+                        <span class="stat-value" id="total-pnl">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Trades Today</span>
+                        <span class="stat-value" id="trades-today">0</span>
                     </div>
                 </div>
             </div>
@@ -360,6 +382,100 @@
                         <button class="btn btn-sm btn-orange" onclick="resetIdle()">Reset Idle</button>
                     </div>
                 </div>
+                <div class="stats-row" style="margin-top:8px;">
+                    <div class="stat-item">
+                        <span class="stat-label">Engine Guard</span>
+                        <span class="stat-value" id="guard-status">OK</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Errors</span>
+                        <span class="stat-value" id="error-count">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- v3: Candle Data & Market State -->
+        <div class="grid-2">
+            <div class="card">
+                <h3>Candle Data (15min)</h3>
+                <div id="candle-data">
+                    <div class="stats-row" style="margin-bottom:8px;">
+                        <div class="stat-item" style="flex:1;">
+                            <span class="stat-label">NIFTY</span>
+                            <span class="stat-value" id="candle-NIFTY">--</span>
+                            <span style="font-size:0.75rem;color:#6e7681;" id="candle-ohlc-NIFTY"></span>
+                        </div>
+                        <div class="stat-item" style="flex:1;">
+                            <span class="stat-label">BANKNIFTY</span>
+                            <span class="stat-value" id="candle-BANKNIFTY">--</span>
+                            <span style="font-size:0.75rem;color:#6e7681;" id="candle-ohlc-BANKNIFTY"></span>
+                        </div>
+                        <div class="stat-item" style="flex:1;">
+                            <span class="stat-label">FINNIFTY</span>
+                            <span class="stat-value" id="candle-FINNIFTY">--</span>
+                            <span style="font-size:0.75rem;color:#6e7681;" id="candle-ohlc-FINNIFTY"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Market State</h3>
+                <div class="stats-row">
+                    <div class="stat-item" style="flex:1;">
+                        <span class="stat-label">NIFTY</span>
+                        <span class="stat-value" id="mstate-NIFTY">--</span>
+                    </div>
+                    <div class="stat-item" style="flex:1;">
+                        <span class="stat-label">BANKNIFTY</span>
+                        <span class="stat-value" id="mstate-BANKNIFTY">--</span>
+                    </div>
+                    <div class="stat-item" style="flex:1;">
+                        <span class="stat-label">FINNIFTY</span>
+                        <span class="stat-value" id="mstate-FINNIFTY">--</span>
+                    </div>
+                </div>
+                <div class="stats-row" style="margin-top:8px;">
+                    <div class="stat-item" style="flex:1;">
+                        <span class="stat-label">ATM Strike</span>
+                        <span class="stat-value" id="atm-strike">--</span>
+                    </div>
+                    <div class="stat-item" style="flex:1;">
+                        <span class="stat-label">Selected Symbol</span>
+                        <span class="stat-value" style="font-size:0.8rem;" id="selected-symbol">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- v3: API Health -->
+        <div class="card" style="margin-bottom:16px;">
+            <h3>API Health Monitor</h3>
+            <div class="stats-row">
+                <div class="stat-item">
+                    <span class="stat-label">Total Calls</span>
+                    <span class="stat-value" id="api-total-calls">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Failures</span>
+                    <span class="stat-value" id="api-failures">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Consec. Failures</span>
+                    <span class="stat-value" id="api-consec-failures">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Avg Latency</span>
+                    <span class="stat-value" id="api-latency">0ms</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Token Expiry</span>
+                    <span class="stat-value" id="api-token-expiry">No</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Healthy</span>
+                    <span class="stat-value" id="api-healthy">--</span>
+                </div>
             </div>
         </div>
 
@@ -371,6 +487,7 @@
                     <div class="signal-dot" id="signal-dot-NIFTY"></div>
                     <span id="signal-text-NIFTY">No signal</span>
                 </div>
+                <div style="font-size:0.75rem;color:#6e7681;margin-top:4px;" id="signal-atr-NIFTY"></div>
             </div>
             <div class="card">
                 <h3>BANKNIFTY Signal</h3>
@@ -378,6 +495,7 @@
                     <div class="signal-dot" id="signal-dot-BANKNIFTY"></div>
                     <span id="signal-text-BANKNIFTY">No signal</span>
                 </div>
+                <div style="font-size:0.75rem;color:#6e7681;margin-top:4px;" id="signal-atr-BANKNIFTY"></div>
             </div>
             <div class="card">
                 <h3>FINNIFTY Signal</h3>
@@ -385,7 +503,30 @@
                     <div class="signal-dot" id="signal-dot-FINNIFTY"></div>
                     <span id="signal-text-FINNIFTY">No signal</span>
                 </div>
+                <div style="font-size:0.75rem;color:#6e7681;margin-top:4px;" id="signal-atr-FINNIFTY"></div>
             </div>
+        </div>
+
+        <!-- Manual Paper Trade -->
+        <div class="card" style="margin-bottom: 16px;">
+            <h3>Manual Paper Trade</h3>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+                <select id="manual-index" style="padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+                    <option value="NIFTY">NIFTY</option>
+                    <option value="BANKNIFTY">BANKNIFTY</option>
+                    <option value="FINNIFTY">FINNIFTY</option>
+                </select>
+                <input type="number" id="manual-strike" placeholder="Strike (e.g. 24500)" value="24500"
+                    style="width:140px; padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+                <select id="manual-option-type" style="padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+                    <option value="CE">CE</option>
+                    <option value="PE">PE</option>
+                </select>
+                <input type="number" id="manual-qty" placeholder="Qty (0=lot size)" value="0"
+                    style="width:120px; padding:6px 10px; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#c9d1d9;">
+                <button class="btn btn-green" onclick="openManualTrade()">Open Trade</button>
+            </div>
+            <div id="manual-trade-result" style="margin-top:10px; font-size:0.85rem; color:#8b949e;"></div>
         </div>
 
         <!-- Trades -->
@@ -437,6 +578,12 @@
     </div>
 
     <script>
+        // HTML escaping utility to prevent XSS
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
         // State
         let currentMode = 'paper';
         let currentTradeTab = 'open';
@@ -480,6 +627,48 @@
                 }
             } catch (e) {
                 alert('Failed to update token: ' + e.message);
+            }
+        }
+
+        // Manual paper trade
+        async function openManualTrade() {
+            const idx = document.getElementById('manual-index').value;
+            const strike = parseInt(document.getElementById('manual-strike').value);
+            const optType = document.getElementById('manual-option-type').value;
+            const qty = parseInt(document.getElementById('manual-qty').value) || 0;
+            const resultDiv = document.getElementById('manual-trade-result');
+            resultDiv.textContent = 'Opening trade...';
+            resultDiv.style.color = '#d29922';
+            try {
+                const resp = await fetch('/api/manual_trade', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({index: idx, strike: strike, option_type: optType, quantity: qty})
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    resultDiv.textContent = 'Error: ' + escapeHtml(data.error);
+                    resultDiv.style.color = '#da3633';
+                } else {
+                    let msg = 'Trade opened: ' + escapeHtml(data.symbol) +
+                        ' | LTP: ' + data.ltp +
+                        ' | Qty: ' + data.quantity +
+                        ' | SL: ' + data.stop_loss +
+                        ' | Target: ' + data.target +
+                        ' | Candles: ' + data.candle_count;
+                    if (data.latest_candle) {
+                        msg += ' | Latest OHLC: O=' + data.latest_candle.open +
+                            ' H=' + data.latest_candle.high +
+                            ' L=' + data.latest_candle.low +
+                            ' C=' + data.latest_candle.close;
+                    }
+                    resultDiv.textContent = msg;
+                    resultDiv.style.color = '#3fb950';
+                    refreshAll();
+                }
+            } catch (e) {
+                resultDiv.textContent = 'Failed: ' + e.message;
+                resultDiv.style.color = '#da3633';
             }
         }
 
@@ -545,11 +734,22 @@
                 document.getElementById('btn-stop').disabled = (state !== 'running');
 
                 // Stats
-                document.getElementById('paper-capital').textContent = formatINR(data.paper_capital || 0);
                 document.getElementById('cycle-count').textContent = data.cycle_count || 0;
                 document.getElementById('current-index').textContent = data.current_index || '--';
                 document.getElementById('consec-losses').textContent = data.consecutive_losses || 0;
                 document.getElementById('active-tokens').textContent = data.active_count || data.active_tokens || 0;
+                document.getElementById('error-count').textContent = data.error_count || 0;
+
+                // v3: Engine guard status
+                const guard = data.engine_guard || {};
+                const guardEl = document.getElementById('guard-status');
+                if (guard.paused) {
+                    guardEl.textContent = 'PAUSED';
+                    guardEl.className = 'stat-value loss';
+                } else {
+                    guardEl.textContent = 'OK';
+                    guardEl.className = 'stat-value profit';
+                }
 
                 // Idle reset
                 const idleContainer = document.getElementById('idle-reset-container');
@@ -559,21 +759,119 @@
                     idleContainer.style.display = 'none';
                 }
 
-                // Signals
+                // v3: Market states
+                const mstates = data.market_states || {};
+                ['NIFTY', 'BANKNIFTY', 'FINNIFTY'].forEach(idx => {
+                    const el = document.getElementById('mstate-' + idx);
+                    const st = mstates['NSE_' + idx] || '--';
+                    if (el) {
+                        el.textContent = st;
+                        if (st === 'TREND_UP') el.className = 'stat-value profit';
+                        else if (st === 'TREND_DOWN') el.className = 'stat-value loss';
+                        else if (st === 'VOLATILE') el.className = 'stat-value' + ' loss';
+                        else if (st === 'NEWS_RISK') el.className = 'stat-value loss';
+                        else el.className = 'stat-value neutral';
+                    }
+                });
+
+                // v3: Selected ATM and symbols
+                const atm = data.selected_atm || {};
+                const syms = data.selected_symbols || {};
+                const atmParts = Object.entries(atm).map(([k,v]) => k.replace('NSE_','') + ':' + v).join(' | ');
+                const symParts = Object.values(syms).filter(Boolean).join(', ');
+                document.getElementById('atm-strike').textContent = atmParts || '--';
+                document.getElementById('selected-symbol').textContent = symParts || '--';
+
+                // Signals (enhanced with ATR)
                 const signals = data.last_signals || {};
                 ['NIFTY', 'BANKNIFTY', 'FINNIFTY'].forEach(idx => {
-                    const sig = signals[idx];
+                    const sig = signals['NSE_' + idx] || signals[idx];
                     const dot = document.getElementById('signal-dot-' + idx);
                     const text = document.getElementById('signal-text-' + idx);
+                    const atrEl = document.getElementById('signal-atr-' + idx);
                     if (sig && sig.signal) {
                         dot.className = 'signal-dot ' + sig.signal.toLowerCase();
                         text.textContent = sig.signal + ' (EMA:' + (sig.ema_fast||'--') + '/' + (sig.ema_slow||'--') + ')';
+                        if (atrEl) atrEl.textContent = 'ATR: ' + (sig.atr || '--') + ' | VWAP: ' + (sig.vwap || '--');
                     } else {
                         dot.className = 'signal-dot';
                         text.textContent = 'No signal';
+                        if (atrEl) atrEl.textContent = '';
                     }
                 });
             } catch (e) { console.error('Status refresh error:', e); }
+        }
+
+        // v3: Refresh capital
+        async function refreshCapital() {
+            try {
+                const resp = await fetch('/api/capital');
+                const data = await resp.json();
+                document.getElementById('capital-available').textContent = formatINR(data.available || 0);
+                document.getElementById('capital-used').textContent = formatINR(data.used_margin || 0);
+                document.getElementById('capital-remaining').textContent = formatINR(data.remaining || 0);
+                document.getElementById('capital-mode').textContent = (data.mode || '--').toUpperCase();
+
+                const avail = document.getElementById('capital-available');
+                avail.className = 'stat-value ' + (data.available > 0 ? 'profit' : 'neutral');
+            } catch (e) { console.error('Capital refresh error:', e); }
+        }
+
+        // v3: Refresh candle data
+        async function refreshCandles() {
+            try {
+                const resp = await fetch('/api/candles');
+                const data = await resp.json();
+                ['NIFTY', 'BANKNIFTY', 'FINNIFTY'].forEach(idx => {
+                    const key = 'NSE_' + idx;
+                    const info = data[key] || {};
+                    const el = document.getElementById('candle-' + idx);
+                    const ohlcEl = document.getElementById('candle-ohlc-' + idx);
+                    if (el) {
+                        const src = info.source ? ' (' + info.source + ')' : '';
+                        el.textContent = (info.count || 0) + ' candles' + src;
+                        if (info.latest_ts) el.textContent += ' @ ' + info.latest_ts;
+                    }
+                    if (ohlcEl && info.ohlc) {
+                        const o = info.ohlc;
+                        ohlcEl.textContent = 'O:' + formatNumber(o.open) + ' H:' + formatNumber(o.high) + ' L:' + formatNumber(o.low) + ' C:' + formatNumber(o.close);
+                    }
+                });
+            } catch (e) { console.error('Candles refresh error:', e); }
+        }
+
+        // v3: Refresh API health
+        async function refreshAPIHealth() {
+            try {
+                const resp = await fetch('/api/api_health');
+                const data = await resp.json();
+                document.getElementById('api-total-calls').textContent = data.total_calls || 0;
+                document.getElementById('api-failures').textContent = data.total_failures || 0;
+                document.getElementById('api-consec-failures').textContent = data.consecutive_failures || 0;
+                document.getElementById('api-latency').textContent = (data.avg_latency_ms || 0) + 'ms';
+                document.getElementById('api-token-expiry').textContent = data.token_expiry ? 'YES' : 'No';
+                const healthEl = document.getElementById('api-healthy');
+                healthEl.textContent = data.is_healthy ? 'YES' : 'NO';
+                healthEl.className = 'stat-value ' + (data.is_healthy ? 'profit' : 'loss');
+                const failEl = document.getElementById('api-failures');
+                failEl.className = 'stat-value ' + (data.total_failures > 0 ? 'loss' : 'neutral');
+            } catch (e) { console.error('API health refresh error:', e); }
+        }
+
+        // v3: Refresh performance stats
+        async function refreshPerformance() {
+            try {
+                const resp = await fetch('/api/performance_stats?mode=' + currentMode);
+                const data = await resp.json();
+                document.getElementById('daily-pnl').textContent = formatINR(data.daily_pnl || 0);
+                document.getElementById('total-pnl').textContent = formatINR(data.total_pnl || 0);
+                document.getElementById('trades-today').textContent = data.trades_today || 0;
+
+                const dpnl = document.getElementById('daily-pnl');
+                dpnl.className = 'stat-value ' + ((data.daily_pnl || 0) >= 0 ? 'profit' : 'loss');
+                const tpnl = document.getElementById('total-pnl');
+                tpnl.className = 'stat-value ' + ((data.total_pnl || 0) >= 0 ? 'profit' : 'loss');
+            } catch (e) { console.error('Performance refresh error:', e); }
         }
 
         async function refreshLTP() {
@@ -612,27 +910,27 @@
                     const pnlClass = (t.pnl > 0) ? 'profit' : (t.pnl < 0) ? 'loss' : 'neutral';
                     if (currentTradeTab === 'closed') {
                         html += `<tr>
-                            <td>${t.id}</td>
-                            <td>${t.timestamp || ''}</td>
-                            <td>${t.index_name}</td>
-                            <td>${t.symbol}</td>
-                            <td>${t.quantity}</td>
+                            <td>${escapeHtml(t.id)}</td>
+                            <td>${escapeHtml(t.timestamp)}</td>
+                            <td>${escapeHtml(t.index_name)}</td>
+                            <td>${escapeHtml(t.symbol)}</td>
+                            <td>${escapeHtml(t.quantity)}</td>
                             <td>${formatNumber(t.entry_price)}</td>
                             <td>${formatNumber(t.exit_price)}</td>
                             <td class="${pnlClass}">${formatNumber(t.pnl)}</td>
-                            <td>${t.status}</td>
+                            <td>${escapeHtml(t.status)}</td>
                         </tr>`;
                     } else {
                         html += `<tr>
-                            <td>${t.id}</td>
-                            <td>${t.timestamp || ''}</td>
-                            <td>${t.index_name}</td>
-                            <td>${t.symbol}</td>
-                            <td>${t.quantity}</td>
+                            <td>${escapeHtml(t.id)}</td>
+                            <td>${escapeHtml(t.timestamp)}</td>
+                            <td>${escapeHtml(t.index_name)}</td>
+                            <td>${escapeHtml(t.symbol)}</td>
+                            <td>${escapeHtml(t.quantity)}</td>
                             <td>${formatNumber(t.entry_price)}</td>
                             <td>${formatNumber(t.stop_loss)}</td>
                             <td>${formatNumber(t.target)}</td>
-                            <td>${t.status}</td>
+                            <td>${escapeHtml(t.status)}</td>
                         </tr>`;
                     }
                 });
@@ -656,8 +954,8 @@
                     const level = (log.level || 'INFO').toLowerCase();
                     const cssClass = level === 'error' ? 'log-error' : level === 'warning' ? 'log-warn' : 'log-info';
                     html += `<div class="log-entry ${cssClass}">
-                        <span class="log-time">${log.timestamp || ''}</span>
-                        [${log.module || ''}] ${log.message || log.exception || ''}
+                        <span class="log-time">${escapeHtml(log.timestamp)}</span>
+                        [${escapeHtml(log.module)}] ${escapeHtml(log.message || log.exception)}
                     </div>`;
                 });
                 container.innerHTML = html;
@@ -678,11 +976,11 @@
                 let html = '';
                 news.forEach(item => {
                     const keywords = item.keywords_matched ? item.keywords_matched.split(',').map(k =>
-                        `<span class="news-keyword">${k.trim()}</span>`
+                        `<span class="news-keyword">${escapeHtml(k.trim())}</span>`
                     ).join(' ') : '';
                     html += `<div class="news-item">
-                        <span class="log-time">${item.timestamp || ''}</span>
-                        ${item.headline} ${keywords}
+                        <span class="log-time">${escapeHtml(item.timestamp)}</span>
+                        ${escapeHtml(item.headline)} ${keywords}
                     </div>`;
                 });
                 container.innerHTML = html;
@@ -711,6 +1009,10 @@
             refreshLogs();
             refreshNews();
             refreshTokenStatus();
+            refreshCapital();
+            refreshCandles();
+            refreshAPIHealth();
+            refreshPerformance();
         }
 
         // Tab switching

@@ -213,25 +213,33 @@ class StrategyEngine:
         # Combined signal evaluation
         bullish_score = 0
         bearish_score = 0
+        conditions: List[str] = []
 
         if bullish_cross:
             bullish_score += 2
+            conditions.append(f"EMA9={curr_fast:.2f}>EMA21={curr_slow:.2f} (bullish cross)")
         if bearish_cross:
             bearish_score += 2
+            conditions.append(f"EMA9={curr_fast:.2f}<EMA21={curr_slow:.2f} (bearish cross)")
 
         if above_vwap:
             bullish_score += 1
+            conditions.append(f"Price {current_price:.2f} > VWAP {vwap:.2f}")
         if below_vwap:
             bearish_score += 1
+            conditions.append(f"Price {current_price:.2f} < VWAP {vwap:.2f}")
 
         if vol_spike:
             bullish_score += 1
             bearish_score += 1
+            conditions.append("Volume spike detected")
 
         if bullish_bos:
             bullish_score += 1
+            conditions.append("Bullish break of structure")
         if bearish_bos:
             bearish_score += 1
+            conditions.append("Bearish break of structure")
 
         # Require at least 3 points for a signal (EMA cross + 1 confirmation)
         signal: Optional[str] = None
@@ -242,8 +250,46 @@ class StrategyEngine:
 
         if signal:
             self._last_signal_candle[index_name] = latest_ts
+            # v3: Enhanced signal logging with conditions
+            from bot.logs.logger import log_info
+            cond_str = ", ".join(conditions)
+            if signal == "CE":
+                log_info(
+                    f"[SIGNAL] {index_name} CE breakout detected: "
+                    f"EMA9={curr_fast:.2f}, EMA21={curr_slow:.2f}. Conditions: {cond_str}",
+                    "strategy",
+                )
+            else:
+                log_info(
+                    f"[SIGNAL] {index_name} PE breakdown detected: "
+                    f"EMA9={curr_fast:.2f}, EMA21={curr_slow:.2f}. Conditions: {cond_str}",
+                    "strategy",
+                )
 
         return signal
+
+    # ------------------------------------------------------------------
+    # ATR calculation (v3: for dynamic stop-loss)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def calculate_atr(candles: List[Dict[str, Any]], period: int = 14) -> float:
+        """Calculate Average True Range from candle data."""
+        if len(candles) < period + 1:
+            return 0.0
+
+        true_ranges: List[float] = []
+        for i in range(1, len(candles)):
+            high = candles[i]["high"]
+            low = candles[i]["low"]
+            prev_close = candles[i - 1]["close"]
+            tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+            true_ranges.append(tr)
+
+        if len(true_ranges) < period:
+            return sum(true_ranges) / len(true_ranges) if true_ranges else 0.0
+
+        return sum(true_ranges[-period:]) / period
 
     def get_signal_details(
         self,
@@ -267,6 +313,7 @@ class StrategyEngine:
             "bearish_score": 0,
             "current_price": None,
             "candle_count": len(candles),
+            "atr": 0.0,
         }
 
         if len(candles) < self.ema_slow + 2:
@@ -285,6 +332,7 @@ class StrategyEngine:
 
         result["vwap"] = round(self.calculate_vwap(candles), 2)
         result["volume_spike"] = self.detect_volume_spike(candles)
+        result["atr"] = round(self.calculate_atr(candles), 2)
 
         bullish_bos, bearish_bos = self.detect_break_of_structure(candles)
         result["bullish_bos"] = bullish_bos

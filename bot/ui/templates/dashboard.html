@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groww Multi-Index F&amp;O AutoTrader</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            color: #58a6ff;
+            font-size: 1.3rem;
+        }
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-running { background: #238636; color: #fff; }
+        .badge-stopped { background: #da3633; color: #fff; }
+        .badge-idle { background: #d29922; color: #000; }
+        .badge-not_initialized { background: #6e7681; color: #fff; }
+
+        .container { padding: 16px 24px; }
+
+        /* Token banner */
+        .token-banner {
+            background: #1c2333;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .token-banner h3 { color: #f0883e; margin-bottom: 8px; }
+        .token-input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .token-input-row input {
+            flex: 1;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 0.9rem;
+        }
+        .token-input-row input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        .token-status {
+            font-size: 0.8rem;
+            margin-top: 6px;
+            color: #8b949e;
+        }
+        .token-status.ok { color: #3fb950; }
+        .token-status.warn { color: #d29922; }
+
+        /* Grid layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        /* Cards */
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .card h3 {
+            color: #8b949e;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .ltp-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .capital-value {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .profit { color: #3fb950; }
+        .loss { color: #f85149; }
+        .neutral { color: #ffffff; }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-green { background: #238636; color: #fff; }
+        .btn-red { background: #da3633; color: #fff; }
+        .btn-blue { background: #1f6feb; color: #fff; }
+        .btn-orange { background: #d29922; color: #000; }
+        .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+
+        /* Tables */
+        .table-wrap {
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+        th {
+            background: #21262d;
+            color: #8b949e;
+            text-align: left;
+            padding: 8px;
+            position: sticky;
+            top: 0;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.5px;
+        }
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #21262d;
+        }
+        tr:hover { background: #1c2128; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 12px;
+        }
+        .tab {
+            padding: 8px 16px;
+            background: #21262d;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            font-size: 0.82rem;
+            border-radius: 6px 6px 0 0;
+        }
+        .tab.active {
+            background: #161b22;
+            color: #58a6ff;
+            font-weight: 600;
+        }
+
+        /* Log entries */
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.78rem;
+            line-height: 1.6;
+        }
+        .log-entry { padding: 2px 0; }
+        .log-info { color: #8b949e; }
+        .log-warn { color: #d29922; }
+        .log-error { color: #f85149; }
+        .log-time { color: #6e7681; margin-right: 8px; }
+
+        /* Signal indicator */
+        .signal-card {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .signal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #6e7681;
+        }
+        .signal-dot.ce { background: #3fb950; }
+        .signal-dot.pe { background: #f85149; }
+
+        /* News */
+        .news-item {
+            padding: 6px 0;
+            border-bottom: 1px solid #21262d;
+            font-size: 0.82rem;
+        }
+        .news-keyword {
+            background: #d29922;
+            color: #000;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        /* Mode toggle */
+        .mode-toggle {
+            display: flex;
+            gap: 4px;
+            background: #21262d;
+            border-radius: 6px;
+            padding: 2px;
+        }
+        .mode-btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: transparent;
+            color: #8b949e;
+        }
+        .mode-btn.active {
+            background: #1f6feb;
+            color: #fff;
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            color: #6e7681;
+            text-transform: uppercase;
+        }
+        .stat-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>Groww Multi-Index F&amp;O AutoTrader</h1>
+        <div class="header-controls">
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="btn-paper" onclick="setMode('paper')">Paper</button>
+                <button class="mode-btn" id="btn-live" onclick="setMode('live')">Live</button>
+            </div>
+            <span class="badge badge-not_initialized" id="engine-badge">NOT INIT</span>
+            <button class="btn btn-green" id="btn-start" onclick="startEngine()">Start</button>
+            <button class="btn btn-red" id="btn-stop" onclick="stopEngine()" disabled>Stop</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Token Banner -->
+        <div class="token-banner">
+            <h3>API Token (expires daily at 6:00 AM - enter manually from Groww web)</h3>
+            <div class="token-input-row">
+                <input type="password" id="token-input" placeholder="Paste your Groww API token here...">
+                <button class="btn btn-blue" onclick="updateToken()">Update Token</button>
+                <button class="btn btn-sm btn-orange" onclick="toggleTokenVisibility()">Show</button>
+            </div>
+            <div class="token-status" id="token-status">No token configured. Enter your token to begin.</div>
+        </div>
+
+        <!-- Index LTP -->
+        <div class="grid-3">
+            <div class="card">
+                <h3>NIFTY</h3>
+                <div class="ltp-value" id="ltp-NIFTY">--</div>
+            </div>
+            <div class="card">
+                <h3>BANKNIFTY</h3>
+                <div class="ltp-value" id="ltp-BANKNIFTY">--</div>
+            </div>
+            <div class="card">
+                <h3>FINNIFTY</h3>
+                <div class="ltp-value" id="ltp-FINNIFTY">--</div>
+            </div>
+        </div>
+
+        <!-- Capital & Status -->
+        <div class="grid-2">
+            <div class="card">
+                <h3>Capital</h3>
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <span class="stat-label">Paper Capital</span>
+                        <span class="stat-value neutral" id="paper-capital">5,00,000.00</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Live Margin</span>
+                        <span class="stat-value neutral" id="live-capital">--</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Engine Status</h3>
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <span class="stat-label">Cycles</span>
+                        <span class="stat-value" id="cycle-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Current Index</span>
+                        <span class="stat-value" id="current-index">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Consec. Losses</span>
+                        <span class="stat-value" id="consec-losses">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Active Tokens</span>
+                        <span class="stat-value" id="active-tokens">0</span>
+                    </div>
+                    <div class="stat-item" id="idle-reset-container" style="display:none;">
+                        <button class="btn btn-sm btn-orange" onclick="resetIdle()">Reset Idle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signals -->
+        <div class="grid-3" id="signals-row">
+            <div class="card">
+                <h3>NIFTY Signal</h3>
+                <div class="signal-card">
+                    <div class="signal-dot" id="signal-dot-NIFTY"></div>
+                    <span id="signal-text-NIFTY">No signal</span>
+                </div>
+            </div>
+            <div class="card">
+                <h3>BANKNIFTY Signal</h3>
+                <div class="signal-card">
+                    <div class="signal-dot" id="signal-dot-BANKNIFTY"></div>
+                    <span id="signal-text-BANKNIFTY">No signal</span>
+                </div>
+            </div>
+            <div class="card">
+                <h3>FINNIFTY Signal</h3>
+                <div class="signal-card">
+                    <div class="signal-dot" id="signal-dot-FINNIFTY"></div>
+                    <span id="signal-text-FINNIFTY">No signal</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trades -->
+        <div class="card" style="margin-bottom: 16px;">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTradeTab('open', this)">Open Trades</button>
+                <button class="tab" onclick="switchTradeTab('closed', this)">Closed Trades</button>
+            </div>
+            <div class="table-wrap" id="trades-table-wrap">
+                <table id="trades-table">
+                    <thead>
+                        <tr id="trades-header">
+                            <th>#</th>
+                            <th>Time</th>
+                            <th>Index</th>
+                            <th>Symbol</th>
+                            <th>Qty</th>
+                            <th>Entry</th>
+                            <th>SL</th>
+                            <th>Target</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trades-body">
+                        <tr><td colspan="9" style="text-align:center; color:#6e7681;">No trades yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Logs & News -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchLogTab('system', this)">System Logs</button>
+                    <button class="tab" onclick="switchLogTab('errors', this)">Error Logs</button>
+                </div>
+                <div class="log-container" id="log-container">
+                    <div class="log-entry log-info">System ready. Enter your API token to begin.</div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>News Feed</h3>
+                <div class="log-container" id="news-container">
+                    <div class="news-item" style="color:#6e7681;">No news items yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentMode = 'paper';
+        let currentTradeTab = 'open';
+        let currentLogTab = 'system';
+        let refreshInterval = null;
+
+        // Token visibility toggle
+        function toggleTokenVisibility() {
+            const input = document.getElementById('token-input');
+            const btn = event.target;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = 'Hide';
+            } else {
+                input.type = 'password';
+                btn.textContent = 'Show';
+            }
+        }
+
+        // Update token
+        async function updateToken() {
+            const token = document.getElementById('token-input').value.trim();
+            if (!token) {
+                alert('Please enter a valid token');
+                return;
+            }
+            try {
+                const resp = await fetch('/api/token', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({token: token})
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    document.getElementById('token-status').textContent = data.message;
+                    document.getElementById('token-status').className = 'token-status ok';
+                    document.getElementById('token-input').value = '';
+                    refreshAll();
+                }
+            } catch (e) {
+                alert('Failed to update token: ' + e.message);
+            }
+        }
+
+        // Engine controls
+        async function startEngine() {
+            try {
+                const resp = await fetch('/api/engine/start', {method: 'POST'});
+                const data = await resp.json();
+                if (data.error) alert(data.error);
+                refreshAll();
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function stopEngine() {
+            try {
+                const resp = await fetch('/api/engine/stop', {method: 'POST'});
+                const data = await resp.json();
+                if (data.error) alert(data.error);
+                refreshAll();
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function resetIdle() {
+            try {
+                await fetch('/api/engine/reset_idle', {method: 'POST'});
+                refreshAll();
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function setMode(mode) {
+            try {
+                const resp = await fetch('/api/engine/mode', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mode: mode})
+                });
+                const data = await resp.json();
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                currentMode = mode;
+                document.getElementById('btn-paper').className = 'mode-btn' + (mode === 'paper' ? ' active' : '');
+                document.getElementById('btn-live').className = 'mode-btn' + (mode === 'live' ? ' active' : '');
+                refreshAll();
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        // Refresh functions
+        async function refreshStatus() {
+            try {
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
+
+                // Engine badge
+                const badge = document.getElementById('engine-badge');
+                const state = data.engine_state || 'not_initialized';
+                badge.textContent = state.toUpperCase();
+                badge.className = 'badge badge-' + state;
+
+                // Buttons
+                document.getElementById('btn-start').disabled = (state === 'running');
+                document.getElementById('btn-stop').disabled = (state !== 'running');
+
+                // Stats
+                document.getElementById('paper-capital').textContent = formatINR(data.paper_capital || 0);
+                document.getElementById('cycle-count').textContent = data.cycle_count || 0;
+                document.getElementById('current-index').textContent = data.current_index || '--';
+                document.getElementById('consec-losses').textContent = data.consecutive_losses || 0;
+                document.getElementById('active-tokens').textContent = data.active_count || data.active_tokens || 0;
+
+                // Idle reset
+                const idleContainer = document.getElementById('idle-reset-container');
+                if (data.is_idle) {
+                    idleContainer.style.display = 'block';
+                } else {
+                    idleContainer.style.display = 'none';
+                }
+
+                // Signals
+                const signals = data.last_signals || {};
+                ['NIFTY', 'BANKNIFTY', 'FINNIFTY'].forEach(idx => {
+                    const sig = signals[idx];
+                    const dot = document.getElementById('signal-dot-' + idx);
+                    const text = document.getElementById('signal-text-' + idx);
+                    if (sig && sig.signal) {
+                        dot.className = 'signal-dot ' + sig.signal.toLowerCase();
+                        text.textContent = sig.signal + ' (EMA:' + (sig.ema_fast||'--') + '/' + (sig.ema_slow||'--') + ')';
+                    } else {
+                        dot.className = 'signal-dot';
+                        text.textContent = 'No signal';
+                    }
+                });
+            } catch (e) { console.error('Status refresh error:', e); }
+        }
+
+        async function refreshLTP() {
+            try {
+                const resp = await fetch('/api/index_ltp');
+                const data = await resp.json();
+                ['NIFTY', 'BANKNIFTY', 'FINNIFTY'].forEach(idx => {
+                    const el = document.getElementById('ltp-' + idx);
+                    if (data[idx]) {
+                        el.textContent = formatNumber(data[idx]);
+                    }
+                });
+            } catch (e) { console.error('LTP refresh error:', e); }
+        }
+
+        async function refreshTrades() {
+            try {
+                const resp = await fetch('/api/trades/' + currentTradeTab + '?mode=' + currentMode);
+                const trades = await resp.json();
+                const tbody = document.getElementById('trades-body');
+                const header = document.getElementById('trades-header');
+
+                if (currentTradeTab === 'closed') {
+                    header.innerHTML = '<th>#</th><th>Time</th><th>Index</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Status</th>';
+                } else {
+                    header.innerHTML = '<th>#</th><th>Time</th><th>Index</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>SL</th><th>Target</th><th>Status</th>';
+                }
+
+                if (!trades || trades.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6e7681;">No trades</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                trades.forEach((t, i) => {
+                    const pnlClass = (t.pnl > 0) ? 'profit' : (t.pnl < 0) ? 'loss' : 'neutral';
+                    if (currentTradeTab === 'closed') {
+                        html += `<tr>
+                            <td>${t.id}</td>
+                            <td>${t.timestamp || ''}</td>
+                            <td>${t.index_name}</td>
+                            <td>${t.symbol}</td>
+                            <td>${t.quantity}</td>
+                            <td>${formatNumber(t.entry_price)}</td>
+                            <td>${formatNumber(t.exit_price)}</td>
+                            <td class="${pnlClass}">${formatNumber(t.pnl)}</td>
+                            <td>${t.status}</td>
+                        </tr>`;
+                    } else {
+                        html += `<tr>
+                            <td>${t.id}</td>
+                            <td>${t.timestamp || ''}</td>
+                            <td>${t.index_name}</td>
+                            <td>${t.symbol}</td>
+                            <td>${t.quantity}</td>
+                            <td>${formatNumber(t.entry_price)}</td>
+                            <td>${formatNumber(t.stop_loss)}</td>
+                            <td>${formatNumber(t.target)}</td>
+                            <td>${t.status}</td>
+                        </tr>`;
+                    }
+                });
+                tbody.innerHTML = html;
+            } catch (e) { console.error('Trades refresh error:', e); }
+        }
+
+        async function refreshLogs() {
+            try {
+                const resp = await fetch('/api/logs/' + currentLogTab);
+                const logs = await resp.json();
+                const container = document.getElementById('log-container');
+
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = '<div class="log-entry log-info">No logs yet.</div>';
+                    return;
+                }
+
+                let html = '';
+                logs.slice(0, 100).forEach(log => {
+                    const level = (log.level || 'INFO').toLowerCase();
+                    const cssClass = level === 'error' ? 'log-error' : level === 'warning' ? 'log-warn' : 'log-info';
+                    html += `<div class="log-entry ${cssClass}">
+                        <span class="log-time">${log.timestamp || ''}</span>
+                        [${log.module || ''}] ${log.message || log.exception || ''}
+                    </div>`;
+                });
+                container.innerHTML = html;
+            } catch (e) { console.error('Logs refresh error:', e); }
+        }
+
+        async function refreshNews() {
+            try {
+                const resp = await fetch('/api/news');
+                const news = await resp.json();
+                const container = document.getElementById('news-container');
+
+                if (!news || news.length === 0) {
+                    container.innerHTML = '<div class="news-item" style="color:#6e7681;">No news items yet.</div>';
+                    return;
+                }
+
+                let html = '';
+                news.forEach(item => {
+                    const keywords = item.keywords_matched ? item.keywords_matched.split(',').map(k =>
+                        `<span class="news-keyword">${k.trim()}</span>`
+                    ).join(' ') : '';
+                    html += `<div class="news-item">
+                        <span class="log-time">${item.timestamp || ''}</span>
+                        ${item.headline} ${keywords}
+                    </div>`;
+                });
+                container.innerHTML = html;
+            } catch (e) { console.error('News refresh error:', e); }
+        }
+
+        async function refreshTokenStatus() {
+            try {
+                const resp = await fetch('/api/token/status');
+                const data = await resp.json();
+                const el = document.getElementById('token-status');
+                if (data.configured) {
+                    el.textContent = `Token configured. Active tokens: ${data.active_count}. Connected: ${data.connected ? 'Yes' : 'No'}`;
+                    el.className = data.connected ? 'token-status ok' : 'token-status warn';
+                } else {
+                    el.textContent = 'No token configured. Enter your token to begin.';
+                    el.className = 'token-status warn';
+                }
+            } catch (e) { console.error('Token status error:', e); }
+        }
+
+        function refreshAll() {
+            refreshStatus();
+            refreshLTP();
+            refreshTrades();
+            refreshLogs();
+            refreshNews();
+            refreshTokenStatus();
+        }
+
+        // Tab switching
+        function switchTradeTab(tab, btn) {
+            currentTradeTab = tab;
+            document.querySelectorAll('#trades-table-wrap').forEach(el => {
+                el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            });
+            btn.classList.add('active');
+            refreshTrades();
+        }
+
+        function switchLogTab(tab, btn) {
+            currentLogTab = tab;
+            btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            refreshLogs();
+        }
+
+        // Formatting
+        function formatNumber(val) {
+            if (val === null || val === undefined) return '--';
+            return parseFloat(val).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        function formatINR(val) {
+            if (val === null || val === undefined) return '--';
+            return '\u20B9 ' + parseFloat(val).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        // Auto-refresh
+        refreshAll();
+        refreshInterval = setInterval(refreshAll, 5000);
+
+        // Enter key to submit token
+        document.getElementById('token-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') updateToken();
+        });
+    </script>
+</body>
+</html>
